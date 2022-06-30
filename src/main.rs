@@ -1,9 +1,14 @@
 use anyhow::Result;
 use extend::ext;
 use serde::Deserialize;
-use std::{process::Command, thread};
+use std::{
+    process::{Command, Stdio},
+    thread,
+};
 
 fn main() -> Result<()> {
+    ensure_logged_in_to_github_cli()?;
+
     let thread_handles = branches()?
         .into_iter()
         .filter(|branch| branch != "main")
@@ -39,6 +44,20 @@ fn main() -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn ensure_logged_in_to_github_cli() -> Result<()> {
+    let status = Command::new("gh")
+        .arg("auth")
+        .arg("status")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()?;
+    anyhow::ensure!(
+        status.success(),
+        "You're not logged in with the GitHub CLI. Run `gh auth login`"
+    );
     Ok(())
 }
 
