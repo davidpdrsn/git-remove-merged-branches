@@ -36,6 +36,7 @@
           cargo-edit
           clippy
           rustfmt
+          gh
         ];
 
         shellHook = ''
