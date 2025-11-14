@@ -1,31 +1,47 @@
 {
-  description = "git-remove-merged-branches";
+  description = "Rust development environment for crate-template";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
   outputs = {
     self,
     nixpkgs,
-  }: let
-    supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
-    forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
-    nixpkgsFor = forAllSystems (system: import nixpkgs {inherit system;});
-  in {
-    packages = forAllSystems (system: let
-      pkgs = nixpkgsFor.${system};
+    rust-overlay,
+    flake-utils,
+  }:
+    flake-utils.lib.eachDefaultSystem (system: let
+      overlays = [(import rust-overlay)];
+      pkgs = import nixpkgs {
+        inherit system overlays;
+      };
+
+      rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+        extensions = ["rust-src" "rust-analyzer"];
+      };
     in {
-      default = pkgs.rustPlatform.buildRustPackage {
-        pname = "git-remove-merged-branches";
-        version = "0.1.0";
-
+      packages.default = pkgs.rustPlatform.buildRustPackage {
+        pname = (pkgs.lib.importTOML ./Cargo.toml).package.name;
+        version = (pkgs.lib.importTOML ./Cargo.toml).package.version;
         src = self;
+        cargoLock.lockFile = ./Cargo.lock;
+      };
 
-        cargoLock = {
-          lockFile = ./Cargo.lock;
-        };
+      devShells.default = pkgs.mkShell {
+        buildInputs = with pkgs; [
+          rustToolchain
+          cargo-edit
+          clippy
+          rustfmt
+        ];
+
+        shellHook = ''
+          echo "Rust development environment loaded"
+          echo "Rust version: $(rustc --version)"
+        '';
       };
     });
-  };
 }
