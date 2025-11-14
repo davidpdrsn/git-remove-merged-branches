@@ -7,6 +7,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0.41"
+clap = { version = "4.5.51", features = ["derive"] }
 extend = "1.1.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

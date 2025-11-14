@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clap::Parser;
 use extend::ext;
 use serde::Deserialize;
 use std::{
@@ -6,7 +7,16 @@ use std::{
     thread,
 };
 
+#[derive(clap::Parser)]
+struct Cli {
+    /// Print which branches will be deleted without actually deleting them.
+    #[arg(long)]
+    dry_run: bool,
+}
+
 fn main() -> Result<()> {
+    let Cli { dry_run } = Cli::parse();
+
     ensure_logged_in_to_github_cli()?;
 
     let thread_handles = branches()?
@@ -35,12 +45,20 @@ fn main() -> Result<()> {
                 eprintln!("`{}` not merged", branch);
             }
             PrState::Merged | PrState::Closed => {
-                eprintln!("deleting `{}`", branch);
-                Command::new("git")
-                    .arg("branch")
-                    .arg("-D")
-                    .arg(&branch)
-                    .run()?;
+                if dry_run {
+                    eprintln!("DRY RUN: Would delete `{}`", branch);
+                } else {
+                    if let Ok(rev) = rev(&branch) {
+                        eprintln!("deleting `{branch}`. Was at {rev}");
+                    } else {
+                        eprintln!("deleting `{branch}`");
+                    }
+                    Command::new("git")
+                        .arg("branch")
+                        .arg("-D")
+                        .arg(&branch)
+                        .run()?;
+                }
             }
         }
     }
@@ -77,7 +95,7 @@ fn branch_state(branch: &str) -> Result<Option<PrState>> {
     let output = if let Ok(output) = Command::new("gh")
         .arg("pr")
         .arg("view")
-        .arg(&branch)
+        .arg(branch)
         .arg("--json")
         .arg("state")
         .run()
@@ -117,4 +135,10 @@ enum PrState {
     Merged,
     Open,
     Closed,
+}
+
+fn rev(branch: &str) -> Result<String> {
+    let output = Command::new("git").args(["rev-parse", branch]).output()?;
+    let rev = String::from_utf8(output.stdout)?;
+    Ok(rev.trim().to_owned())
 }
