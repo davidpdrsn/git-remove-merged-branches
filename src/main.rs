@@ -13,6 +13,7 @@ fn main() -> Result<()> {
         .into_iter()
         .filter(|branch| branch != "main")
         .filter(|branch| branch != "master")
+        .filter(|branch| branch != "(no branch)")
         .map(|branch| {
             thread::spawn(move || -> Result<_> {
                 if let Some(state) = branch_state(&branch)? {
